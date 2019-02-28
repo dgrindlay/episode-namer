@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"dgrindlay.io/episode-namer/renamer"
+	renamer "github.com/dgrindlay/episode-namer"
 )
 
 func main() {
