@@ -2,47 +2,42 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
-	renamer "github.com/dgrindlay/episode-namer"
+	r "github.com/dgrindlay/renamer"
 )
 
 func main() {
-	loginRequest := renamer.LoginRequest{Apikey: "0629B785CE550C8D"}
-	loginResponseSuccess := new(renamer.LoginResponse)
-	loginResponseError := new(renamer.ErrorResponse)
+	if len(os.Args) != 2 {
+		log.Fatal("usage: directory")
+	}
 
-	loginErr := renamer.MakeLoginRequest(loginRequest, loginResponseSuccess, loginResponseError)
+	episodeFiles := r.MapEpisodeFiles(os.Args[1])
+
+	tvdb := new(r.Tvdb)
+	loginRequest := r.LoginRequest{Apikey: "0629B785CE550C8D"}
+	loginErr := tvdb.Login(loginRequest)
 
 	if loginErr != nil {
 		log.Fatal(loginErr)
 		return
 	}
 
-	token := loginResponseSuccess.Token
-
-	episodeFiles := renamer.MapEpisodeFiles(os.Args[1])
-
 	for series, files := range episodeFiles {
 		fmt.Println("Search for series: " + series)
 
-		searchResponseSuccess := new(renamer.SearchResponse)
-		searchResponseError := new(renamer.ErrorResponse)
+		search, err := tvdb.Search(series)
 
-		searchErr := renamer.MakeSearchRequest(series, token, searchResponseSuccess,
-			searchResponseError)
-
-		if searchErr != nil {
-			log.Fatal(searchErr)
+		if err != nil {
+			log.Fatal(err)
 			return
 		}
 
-		seriesList := renamer.CullSeriesData(searchResponseSuccess.Data)
+		seriesList := r.CullSeriesData(search.Data)
 
 		reader := bufio.NewReader(os.Stdin)
 		seriesID := -1
@@ -58,6 +53,11 @@ func main() {
 			input, _ := reader.ReadString('\n')
 			input = strings.Trim(input, "\n\r")
 
+			if input == "q" {
+				fmt.Println("Exiting...")
+				os.Exit(0)
+			}
+
 			if index, err := strconv.Atoi(input); err == nil {
 				if index < len(seriesList) {
 					fmt.Println("You have selected: " + seriesList[index].SeriesName)
@@ -70,46 +70,30 @@ func main() {
 
 				fmt.Println("Index out of bounds max: " + strconv.Itoa(len(seriesList)))
 				continue
-			} else {
-				fmt.Println(err)
 			}
 
 			fmt.Println("Not a valid input")
 		}
 
-		var episodes []renamer.EpisodeDetails
+		var episodes []r.EpisodeDetails
 
 		page := 1
 		for true {
-			episodeDetailsSuccess := new(renamer.EpisodeResponse)
-			episodeDetailsError := new(renamer.ErrorResponse)
-
 			fmt.Println("Search for page: " + strconv.Itoa(page))
-			err := renamer.GetEpisodeDetails(seriesID, token, page, episodeDetailsSuccess, episodeDetailsError)
+			episodeResponse, err := tvdb.GetEpisodes(seriesID, page)
 
 			if err != nil {
-				log.Fatal(err)
+				fmt.Println(err)
 				break
 			}
 
-			if episodeDetailsError.Error != "" {
-				out, err := json.Marshal(episodeDetailsError)
-				if err != nil {
-					log.Fatal(err)
-					break
-				}
+			fmt.Println("Number of episodes found: " + strconv.Itoa(len(episodeResponse.Data)))
 
-				fmt.Println(string(out))
-				break
-			}
-
-			fmt.Println("Number of episodes found: " + strconv.Itoa(len(episodeDetailsSuccess.Data)))
-
-			for _, episode := range episodeDetailsSuccess.Data {
+			for _, episode := range episodeResponse.Data {
 				episodes = append(episodes, episode)
 			}
 
-			if page == episodeDetailsSuccess.Links.Last {
+			if page == episodeResponse.Links.Last {
 				break
 			}
 
@@ -118,13 +102,13 @@ func main() {
 
 		fmt.Println("Total number of episodes: " + strconv.Itoa(len(episodes)))
 
-		episodeNameMap := renamer.GetEpisodeNameMap(episodes)
+		episodeNameMap := r.GetEpisodeNameMap(episodes)
 		for k, v := range episodeNameMap {
 			fmt.Printf("S%vE%v: %v\n", k.Season, k.Episode, v)
 		}
 
 		reader = bufio.NewReader(os.Stdin)
-		filesToRename := renamer.RenameFiles(seriesName, files, episodeNameMap)
+		filesToRename := r.RenameFiles(seriesName, files, episodeNameMap)
 		for _, rename := range filesToRename {
 			fmt.Printf("Rename file from %v to %v, y?\n", rename.From, rename.To)
 

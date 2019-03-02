@@ -42,6 +42,8 @@ func CullSeriesData(seriesData []SeriesData) []SeriesData {
 	return seriesData
 }
 
+// RenameTuple contains all the information required to rename a file from it's original name
+// to it's season, episode name
 type RenameTuple struct {
 	From   string
 	To     string
@@ -54,9 +56,6 @@ func RenameFiles(seriesName string, files []string, episodeMap map[EpisodeNumber
 
 	for _, fileName := range files {
 		episodeNumber := GetEpisodeNumber(fileName)
-		if episodeNumber.Episode == -1 {
-			episodeNumber = GetEpisodeNumberFormatTwo(fileName)
-		}
 
 		if episodeNumber.Episode == -1 {
 			fmt.Println("Could not find episode number for " + fileName)

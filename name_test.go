@@ -35,7 +35,7 @@ func TestGetEpisodeNumber(t *testing.T) {
 		{"DoctorWho S3E5", EpisodeNumber{3, 5}},
 		{"Spiderman S1e4 SomethingInteresting", EpisodeNumber{1, 4}},
 		{"TestEpidose s3E4", EpisodeNumber{3, 4}},
-		{"Captain America", EpisodeNumber{0, 0}},
+		{"Captain America", EpisodeNumber{-1, -1}},
 	}
 
 	for _, c := range cases {

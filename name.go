@@ -59,8 +59,8 @@ func GetFileType(name string) string {
 
 // GetEpisodeNumber get the episode and season number from file name
 func GetEpisodeNumber(name string) EpisodeNumber {
-	episodeNumberRegex, _ := regexp.Compile("[sS]\\d+[eE]\\d+")
-	episodeSubString := episodeNumberRegex.FindString(name)
+	explicitRegex, _ := regexp.Compile("[sS]\\d+[eE]\\d+")
+	explicitSubString := explicitRegex.FindString(name)
 
 	episodeRegex, _ := regexp.Compile("[eE]\\d+")
 	seasonRegex, _ := regexp.Compile("[sS]\\d+")
@@ -68,22 +68,17 @@ func GetEpisodeNumber(name string) EpisodeNumber {
 	var episode = -1
 	var season = -1
 
-	if episodeRegex.MatchString(episodeSubString) && seasonRegex.MatchString(episodeSubString) {
-		episode, _ = strconv.Atoi(episodeRegex.FindString(episodeSubString)[1:])
-		season, _ = strconv.Atoi(seasonRegex.FindString(episodeSubString)[1:])
+	if episodeRegex.MatchString(explicitSubString) && seasonRegex.MatchString(explicitSubString) {
+		episode, _ = strconv.Atoi(episodeRegex.FindString(explicitSubString)[1:])
+		season, _ = strconv.Atoi(seasonRegex.FindString(explicitSubString)[1:])
+		return EpisodeNumber{season, episode}
 	}
 
-	return EpisodeNumber{season, episode}
-}
+	implicitRegex, _ := regexp.Compile("\\d+x\\d+")
+	implicitSubString := implicitRegex.FindString(name)
 
-func GetEpisodeNumberFormatTwo(name string) EpisodeNumber {
-	episodeNumberRegex, _ := regexp.Compile("\\d+x\\d+")
-	episodeSubString := episodeNumberRegex.FindString(name)
+	parts := strings.Split(implicitSubString, "x")
 
-	parts := strings.Split(episodeSubString, "x")
-
-	var episode = -1
-	var season = -1
 	digitRegex, _ := regexp.Compile("\\d+")
 	if digitRegex.MatchString(parts[0]) {
 		season, _ = strconv.Atoi(parts[0])
