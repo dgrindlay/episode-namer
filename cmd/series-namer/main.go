@@ -37,18 +37,26 @@ func main() {
 			return
 		}
 
-		seriesList := r.CullSeriesData(search.Data)
+		seriesList, checkErr := tvdb.OrderByPriority(search.Data)
+		if checkErr != nil {
+			fmt.Println(checkErr)
+			break
+		}
 
 		reader := bufio.NewReader(os.Stdin)
 		seriesID := -1
 		seriesName := ""
 
+		limit := 5
 		for {
-			fmt.Println("Select index from list or q to exit: ")
-			for i, series := range seriesList {
-				fmt.Printf("%v: %v\n", i, series.SeriesName)
+			fmt.Println("Type index to select, c to show more or q to exit: ")
+			for i := 0; i < limit; i++ {
+				fmt.Printf("%v: %v\n", i, seriesList[i].SeriesName)
+
+				if i == len(seriesList)-1 {
+					break
+				}
 			}
-			fmt.Println("Number of choices: ", len(seriesList))
 
 			input, _ := reader.ReadString('\n')
 			input = strings.Trim(input, "\n\r")
@@ -56,6 +64,12 @@ func main() {
 			if input == "q" {
 				fmt.Println("Exiting...")
 				os.Exit(0)
+			}
+
+			if input == "c" {
+				fmt.Println("Continuing...")
+				limit += 5
+				continue
 			}
 
 			if index, err := strconv.Atoi(input); err == nil {
