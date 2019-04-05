@@ -1,6 +1,7 @@
 package renamer
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -76,4 +77,64 @@ func RenameFiles(seriesName string, files []string, episodeMap map[EpisodeNumber
 	}
 
 	return filesToRename
+}
+
+type byRating struct {
+	seriesData  []*SeriesData
+	priorityMap map[*SeriesData]int
+}
+
+func (s byRating) Len() int {
+	return len(s.seriesData)
+}
+
+func (s byRating) Swap(i, j int) {
+	s.seriesData[i], s.seriesData[j] = s.seriesData[j], s.seriesData[i]
+}
+
+func (s byRating) Less(i, j int) bool {
+	return s.priorityMap[s.seriesData[i]] >= s.priorityMap[s.seriesData[j]]
+}
+
+type SeriesPriority struct {
+	series     *SeriesData
+	priorities []float64
+}
+
+func normalizeSeriesPriorities(seriesPriority []SeriesPriority) ([]SeriesPriority, error) {
+	normalizedSeriesPriorities := []SeriesPriority{}
+
+	if len(seriesPriority) == 0 || len(seriesPriority[0].priorities) == 0 {
+		return normalizedSeriesPriorities, errors.New("Length error")
+	}
+
+	maxPriorities := make([]float64, len(seriesPriority[0].priorities))
+
+	for _, series := range seriesPriority {
+		seriesPriorities := series.priorities
+		if len(seriesPriorities) != len(maxPriorities) {
+			return normalizedSeriesPriorities, errors.New("Length error")
+		}
+
+		for i, priority := range seriesPriorities {
+			if priority > maxPriorities[i] {
+				maxPriorities[i] = priority
+			}
+		}
+	}
+
+	for _, series := range seriesPriority {
+		normalPriorities := make([]float64, len(maxPriorities))
+		for i := 0; i < len(maxPriorities); i++ {
+			if maxPriorities[i] != 0 {
+				normalPriorities[i] = (series.priorities[i] / maxPriorities[i]) * 100
+			} else {
+				normalPriorities[i] = 0
+			}
+		}
+
+		normalizedSeriesPriorities = append(normalizedSeriesPriorities, SeriesPriority{series.series, normalPriorities})
+	}
+
+	return normalizedSeriesPriorities, nil
 }

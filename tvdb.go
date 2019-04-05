@@ -93,26 +93,10 @@ func (tvdb *Tvdb) Search(searchTerm string) (*SearchResponse, error) {
 	return searchResp, errors.New("Unknown response")
 }
 
-type byRating struct {
-	seriesData  []*SeriesData
-	priorityMap map[*SeriesData]int
-}
-
-func (s byRating) Len() int {
-	return len(s.seriesData)
-}
-
-func (s byRating) Swap(i, j int) {
-	s.seriesData[i], s.seriesData[j] = s.seriesData[j], s.seriesData[i]
-}
-
-func (s byRating) Less(i, j int) bool {
-	return s.priorityMap[s.seriesData[i]] >= s.priorityMap[s.seriesData[j]]
-}
-
 func (tvdb *Tvdb) OrderByPriority(seriesData []SeriesData) ([]SeriesData, error) {
 	orderedSeriesPointers := []*SeriesData{}
 	orderedSeriesList := []SeriesData{}
+	seriesPrioritiesList := []SeriesPriority{}
 	seriesPriorityMap := make(map[*SeriesData]int)
 	client := &http.Client{}
 
@@ -130,7 +114,6 @@ func (tvdb *Tvdb) OrderByPriority(seriesData []SeriesData) ([]SeriesData, error)
 		req.Header.Add("Accept", "application/json")
 
 		resp, err := client.Do(req)
-
 		if err != nil {
 			fmt.Println(err)
 			return seriesData, err
@@ -150,7 +133,8 @@ func (tvdb *Tvdb) OrderByPriority(seriesData []SeriesData) ([]SeriesData, error)
 			respData := data["data"].(map[string]interface{})
 			siteRating := respData["siteRating"].(float64)
 			siteRatingCount := respData["siteRatingCount"].(float64)
-			seriesPriorityMap[&series] = int((siteRating + siteRatingCount))
+
+			seriesPrioritiesList = append(seriesPrioritiesList, SeriesPriority{series: &series, priorities: []float64{siteRating, siteRatingCount}})
 		} else {
 			errMessage := new(ErrorResponse)
 			err := json.NewDecoder(resp.Body).Decode(errMessage)
@@ -161,6 +145,15 @@ func (tvdb *Tvdb) OrderByPriority(seriesData []SeriesData) ([]SeriesData, error)
 
 			return seriesData, fmt.Errorf("%v: %v", strconv.Itoa(resp.StatusCode), errMessage.Error)
 		}
+	}
+
+	normalizedSeries, err := normalizeSeriesPriorities(seriesPrioritiesList)
+	if err != nil {
+		return seriesData, err
+	}
+
+	for _, seriesPriority := range normalizedSeries {
+		seriesPriorityMap[seriesPriority.series] = int(0.4*seriesPriority.priorities[0] + 0.6*seriesPriority.priorities[1])
 	}
 
 	sort.Sort(byRating{seriesData: orderedSeriesPointers, priorityMap: seriesPriorityMap})
